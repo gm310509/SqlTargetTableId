@@ -36,3 +36,6 @@ The UDF will recognise fully qualified target names (e.g. `insert into db.tbl ..
 
 If you only wish to compile the code, any IDE should do.
 However, If you wish to alter, extend and/or fix the SQL syntax recognised by this code, you will need javacc to recompile the grammar.
+
+The sql/setup.sql contains useful queries that may be used as is, or as a starting point, for you to install and remove the UDF on Teradata.
+
