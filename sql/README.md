@@ -4,8 +4,9 @@ The setup.sql file consists of two parts.
 1. Queries to install the JAR and create two overloaded functions.
 1. Queries to drop the two overloaded functions and remove the JAR.
 
-When "upgrading" the JAR, it is always, IMHO, a good idea to drop the UDFs and remove the JAR then run the installation queries as a JAR.
-I do not advise simply replacing the JAR. Usually simply replacing the JAR works, but I've sometimes experienced "weird behaviour" when doing that.
+When "upgrading" the JAR, it is always, IMHO, a good idea to drop the UDFs and remove the JAR (i.e. part 2 of the setup.sql) then run the installation queries (i.e. part 1 of the setup.sql).
+I do not advise simply replacing the JAR while leaving the UDFs in place.
+Usually simply replacing the JAR works, but I've sometimes experienced "weird behaviour" when doing that.
 
 The two overloaded functions are as follows:
 * Single Parameter variant. The parameter is the SQL to parse. The target table is identified and returned as it appears in the query.
