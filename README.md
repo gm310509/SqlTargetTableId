@@ -1,5 +1,5 @@
-#SQL Target Table ID
-##for Teradata
+# SQL Target Table ID
+## for Teradata
 
 A Teradata UDF that identifies the target of an action query. For example:
 
@@ -30,7 +30,7 @@ It supports the following action query types:
 * CT
 
 It does not parse the entire query. Once it identifies the target table, the parsing stops.
-For example, you could pass the query "Insert into X;" and the code will return X - despite the fact that such a query is invalid.
+For example, you could pass the query `Insert into X;` and the code will return X - despite the fact that such a query is invalid.
 
 The UDF will recognise fully qualified target names (e.g. insert into db.tbl ...) and partially qualified targets (e.g. insert into tbl ...)
 
