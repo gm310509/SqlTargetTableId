@@ -1,0 +1,773 @@
+/*
+ * Copyright Teradata Corporation 2016
+ * This code is properietary and confidential and may not be used
+ * for any purpose other than the one defined in the license agreement.
+ * 
+ */
+
+/*
+ * Javacc grammar for Host variables. This grammar is a basic parser to
+ * identify host variables (e.g. :X) found in an SQL query. single line comments
+ * and multiling comments are ignored.
+ * This grammar will modify the supplied SQL in such a way that discovered
+ * variables are replaced with ? operators. All other text is unmodified.
+ * The grammar adds each discovered host variable into a variable list.
+ *
+ * Author: gm310509
+ */
+/*
+ * Copyright © 2002 Sun Microsystems, Inc., 4150 Network Circle, Santa Clara,
+ * California 95054, U.S.A. All rights reserved.  Sun Microsystems, Inc. has
+ * intellectual property rights relating to technology embodied in the product
+ * that is described in this document. In particular, and without limitation,
+ * these intellectual property rights may include one or more of the U.S.
+ * patents listed at http://www.sun.com/patents and one or more additional
+ * patents or pending patent applications in the U.S. and in other countries.
+ * U.S. Government Rights - Commercial software. Government users are subject
+ * to the Sun Microsystems, Inc. standard license agreement and applicable
+ * provisions of the FAR and its supplements.  Use is subject to license terms.
+ * Sun,  Sun Microsystems,  the Sun logo and  Java are trademarks or registered
+ * trademarks of Sun Microsystems, Inc. in the U.S. and other countries.  This
+ * product is covered and controlled by U.S. Export Control laws and may be
+ * subject to the export or import laws in other countries.  Nuclear, missile,
+ * chemical biological weapons or nuclear maritime end uses or end users,
+ * whether direct or indirect, are strictly prohibited.  Export or reexport
+ * to countries subject to U.S. embargo or to entities identified on U.S.
+ * export exclusion lists, including, but not limited to, the denied persons
+ * and specially designated nationals lists is strictly prohibited.
+ */
+
+/*
+options {
+  LOOKAHEAD = 1;
+  CHOICE_AMBIGUITY_CHECK = 2;
+  OTHER_AMBIGUITY_CHECK = 1;
+  STATIC = true;
+  DEBUG_PARSER = false;
+  DEBUG_LOOKAHEAD = false;
+  DEBUG_TOKEN_MANAGER = false;
+  ERROR_REPORTING = true;
+  JAVA_UNICODE_ESCAPE = false;
+  UNICODE_INPUT = false;
+  IGNORE_CASE = false;
+  USER_TOKEN_MANAGER = false;
+  USER_CHAR_STREAM = false;
+  BUILD_PARSER = true;
+  BUILD_TOKEN_MANAGER = true;
+  SANITY_CHECK = true;
+  FORCE_LA_CHECK = false;
+}
+*/
+
+/*******************************************************************************
+ * TODO list
+ *
+ * - Update grammar to allow for "Delete Database X" style queries - currently
+ *   this grammar will detect the target table as "database" - which is incorrect.
+ *
+ */
+
+options {
+  IGNORE_CASE = true;
+  DEBUG_PARSER = false;
+  STATIC = false;
+  LOOKAHEAD = 2;
+}
+
+PARSER_BEGIN(TargetTableParser)
+
+package com.teradata.edwdecoded.sql.idtarget.targettableparser;
+
+import com.teradata.edwdecoded.sql.idtarget.Debug;
+
+public class TargetTableParser {
+
+}
+
+PARSER_END(TargetTableParser)
+
+
+
+SKIP : { " " | "\t" }
+SKIP : { < "\n" | "\r" | "\r\n" > }
+
+/* Comment handling */
+/* Multi-line comments */
+/* Open comment while in DEFAULT state, then switch to ML_COMMENT_STATE until
+ * the end of the comment.
+ */
+SKIP : { < MULTI_LINE_COMMENT: "/*" > : ML_COMMENT_STATE }
+
+<ML_COMMENT_STATE> SKIP : {
+    < "*/" > : DEFAULT
+  | < ~[] >
+}
+
+
+/* Single Line comments */
+SKIP :
+{
+  <SINGLE_LINE_COMMENT: "--" (~["\n", "\r"])* ("\n" | "\r" | "\r\n")?>
+}
+
+
+
+/* Symbols */
+TOKEN : { < SEMICOLON   : ";" > }
+TOKEN : { < SINGLE_QUOTE: "'" > }
+TOKEN : { < OPEN_PAREN  : "(" > }
+TOKEN : { < CLOSE_PAREN : ")" > }
+TOKEN : { < COMMA       : "," > }
+TOKEN : { < HYPHEN      : "-" > }
+TOKEN : { < ASTERISK    : "*" > }
+
+
+/*
+ * Generic keywords
+ */
+TOKEN : { < INTO        : "into" >  }
+TOKEN : { < SET         : "set" > }
+TOKEN : { < NOT         : "not" > }
+TOKEN : { < FROM        : "from" > }
+TOKEN : { < AS          : "as" > }
+TOKEN : { < BY          : "by" > }
+TOKEN : { < WHERE       : "where" > }
+TOKEN : { < ALL         : "all" > }
+TOKEN : { < TABLE       : "table" > }
+TOKEN : { < CASESPECIFIC: "casespecific" > }
+TOKEN : { < CHARACTER   : "character" > }
+TOKEN : { < UPPERCASE   : "uppercase" > }
+TOKEN : { < NULL        : "null" > }
+TOKEN : { < TO          : "to" > }
+
+/*
+ * Generic Literals.
+ */
+TOKEN : { < LITERAL_INTEGER     : ( [ "0"-"9" ] ) + > }
+/*
+ * Data Types - from TD 14 SQL Data Types and Lirerals Chapter 1 "Data Defintion Phrases".
+ */
+// The following definition causes a syntax error to be generated when parsing a using clause.
+// It appears to consume extra clos_parens, or doesn't allow the close paren of a using to be
+// recognised by the using clause. So the bare word is used instead to identify the token.
+// This occurs even though the token with the optional size specifier seems to correctly
+// identify a blob with a size.
+//TOKEN : { < BLOB        : ( "blob" ( <OPEN_PAREN> <LITERAL_INTEGER> <CLOSE_PAREN> ) ? ) > }
+TOKEN : { < BLOB        : ( "blob" ) > }
+TOKEN : { < BYTE        : ( "byte" ) > }
+TOKEN : { < VARBYTE     : ( "varbyte" ) > }
+
+TOKEN : { < BIGINT      : "bigint" > }
+TOKEN : { < BYTEINT     : "byteint" > }
+TOKEN : { < DATE        : "date" > }
+TOKEN : { < DECIMAL     : "decimal" > }
+TOKEN : { < DOUBLE      : "double" > }
+TOKEN : { < PRECISION   : "precision" > }
+TOKEN : { < FLOAT       : "float" > }
+TOKEN : { < INTEGER     : "integer" > }
+TOKEN : { < NUMBER      : "number" > }
+TOKEN : { < NUMERIC     : "numeric" > }
+TOKEN : { < REAL        : "real" > }
+TOKEN : { < SMALLINT    : "smallint" > }
+
+TOKEN : { < TIME        : "time" > }
+TOKEN : { < TIMESTAMP   : "timestamp" > }
+
+
+TOKEN : { < INTERVAL    : "interval" > }
+TOKEN : { < DAY         : "day" > }
+TOKEN : { < HOUR        : "hour" > }
+TOKEN : { < MINUTE      : "minute" > }
+TOKEN : { < SECOND      : "second" > }
+TOKEN : { < MONTH       : "month" > }
+TOKEN : { < YEAR        : "year" > }
+
+
+TOKEN : { < CHAR        : "char" > }
+TOKEN : { < CLOB        : "clob" > }
+TOKEN : { < VARYING     : "varying" > }
+TOKEN : { < LONG        : "long" > }
+TOKEN : { < VARCHAR     : "varchar" > }
+
+TOKEN : { < GRAPHIC     : "graphic" > }
+TOKEN : { < VARGRAPHIC  : "vargraphic" > }
+
+
+
+/* Tokens relating to an update */
+TOKEN : { < UPDATE      : ( "update" | "upd" ) > }
+
+/* Tokens relating to an insert */
+TOKEN : { < INSERT      : ( "insert" | "ins" ) > }
+
+/* Tokens relating to a merge */
+TOKEN : { < MERGE       : "merge" > }
+
+/* Tokens relating to a DELETE */
+TOKEN : { < DELETE      : ( "delete" | "del" ) > }
+
+
+/* Tokens relating to a create table */
+TOKEN : { < CREATE      : "create" > }
+TOKEN : { < CT          : "ct" > }
+TOKEN : { < MULTISET    : "multiset" > }
+TOKEN : { < GLOBAL      : "global" > }
+TOKEN : { < TEMPORARY   : "temporary" > }
+TOKEN : { < VOLATILE    : "volatile" > }
+
+
+/*
+ * Using clause
+ */
+
+TOKEN : { < USING       : "using" > }
+TOKEN : { < DEFERRED    : "deferred" > }
+TOKEN : { < LOCATOR     : "locator" > }
+TOKEN : { < NAME        : "name" > }
+
+/*
+ * Locking clause
+ */
+TOKEN : { < LOCKING     : ( "locking" | "lock" ) > : LOCKING_STATE }
+<LOCKING_STATE> SKIP  : { < " " | "\t" | "\n" | "\r" | "\r\n" > }
+<LOCKING_STATE> TOKEN : { < DATABASE    : "database" > }
+<LOCKING_STATE> TOKEN : { < TABLE_LCK       : "table" > }
+<LOCKING_STATE> TOKEN : { < VIEW        : "view" > }
+<LOCKING_STATE> TOKEN : { < ROW         : "row" > }
+<LOCKING_STATE> TOKEN : { < FOR         : "for" > }
+<LOCKING_STATE> TOKEN : { < IN          : "in" > }
+<LOCKING_STATE> TOKEN : { < ACCESS      : "access" > : DEFAULT }
+<LOCKING_STATE> TOKEN : { < EXCLUSIVE   : ( "exclusive" | "excl" ) > : DEFAULT }
+<LOCKING_STATE> TOKEN : { < SHARE       : "share" > : DEFAULT }
+<LOCKING_STATE> TOKEN : { < READ        : "read" > : DEFAULT }
+<LOCKING_STATE> TOKEN : { < OVERRIDE    : "override" > : DEFAULT }
+<LOCKING_STATE> TOKEN : { < WRITE       : "write" > : DEFAULT }
+<LOCKING_STATE> TOKEN : { < CHECKSUM    : "checksum" > : DEFAULT }
+
+<LOCKING_STATE> TOKEN : {
+        < DATABASE_OBJECT_NAME : <OBJECT_NAME> | <OBJECT_NAME> "." <OBJECT_NAME> >
+            | <#OBJECT_NAME : ( [ "a" - "z", "_", "$", "#", "0" - "9" ] )+ >
+
+    }
+
+
+/*
+ * Temporal clause.
+ */ 
+TOKEN : { < CURRENT     : "current" > }
+TOKEN : { < VALIDTIME   : "validtime" > }
+TOKEN : { < SEQUENCED   : "sequenced" > }
+TOKEN : { < NONSEQUENCED: "nonsequenced" > }
+TOKEN : { < NONTEMPORAL : "nontemporal" > }
+TOKEN : { < PERIOD      : "period" > }
+TOKEN : { < UNTIL_CHANGED: "until_changed" > }
+TOKEN : { < UNTIL_CLOSED: "until_closed" > }
+TOKEN : { < PERIOD_BOUND: ( [ "0" - "9", "+", ":" ] | <HYPHEN>) + > }
+
+
+TOKEN : { < MODE        : "mode" > }
+TOKEN : { < NOWAIT      : "nowait" > }
+
+
+/* An identifier */
+TOKEN : { < IDENTIFIER  : ( [ "a" - "z", "_", "$", "#", ".", "0" - "9" ] )+ > }
+
+
+
+
+
+String idTarget() : {
+String target = null;
+} {
+    ( parseUsingClause ()) ?
+    ( parseLockingClause ()) *
+    ( parseTemporalClause ()) ?
+    (
+        <INSERT> target = parseInsert()
+      | <UPDATE> target = parseUpdate()
+      | <DELETE> target = parseDelete()
+      | <MERGE>  target = parseMerge()
+      | <CREATE> target = parseCreate()
+      | <CT>     <IDENTIFIER>           { target = token.image; }
+    )
+    { return target; }
+}
+
+
+/*
+ * Parse a using clause
+ */
+void parseUsingClause () : {
+} {
+    <USING>                             { Debug.println ("Using ("); }
+    (
+        (
+            <OPEN_PAREN>
+            parseUsingDeclOptionalParen()   { Debug.println(); }
+            (
+                <COMMA>
+                parseUsingDeclOptionalParen()   { Debug.println(); }
+            ) *
+
+            <CLOSE_PAREN>                   { Debug.println (") End of using"); }
+        )
+      | (
+            parseUsingDeclMandatoryParen()  { Debug.println(); }
+            (
+                <COMMA>
+                parseUsingDeclMandatoryParen()  { Debug.println(); }
+            ) *
+        )
+    )
+}
+
+
+/*
+ * Parse a single column/variable declaration within the larger using clause.
+ */
+void parseUsingDeclOptionalParen() : {
+} {
+    <IDENTIFIER>                    { Debug.print ("  optional paren " + token.image + " "); }
+    (
+        (
+            parseDataType()
+            (
+                parseTypeAttribute()
+            ) *
+
+        )
+      | (
+            <OPEN_PAREN>
+            parseDataType()
+            (
+                parseTypeAttribute()
+            ) *
+            <CLOSE_PAREN>
+        )
+    )
+}
+
+
+
+/*
+ * Parse a single column/variable declaration within the larger using clause.
+ */
+void parseUsingDeclMandatoryParen() : {
+} {
+    <IDENTIFIER>                    { Debug.print ("  mandatory paren " + token.image + " "); }
+    <OPEN_PAREN>
+    parseDataType()
+    (
+        parseTypeAttribute()
+    ) *
+    <CLOSE_PAREN>
+}
+
+
+
+void parseDataType () : {
+String str;
+} {
+    (
+        (
+            ( <BLOB> | <BYTE> | <VARBYTE> ) { Debug.print ("Byte: " + token.image); }
+            (
+                <OPEN_PAREN>
+                <LITERAL_INTEGER>           { Debug.print (" size: " + token.image); }
+                <CLOSE_PAREN>
+            ) ?
+        )
+      | (
+            <BIGINT>                        { str = token.image; }
+          | <BYTEINT>                       { str = token.image; }
+          | <DATE>                          { str = token.image; }
+          | (
+                ( <DECIMAL> | <NUMERIC> | <NUMBER> )   { str = token.image; }
+                (
+                    <OPEN_PAREN>
+                    (
+                        <LITERAL_INTEGER>
+                      | <ASTERISK>
+                    )                       { str = str + " (" + token.image; }
+                    (
+                        <COMMA>
+                        <LITERAL_INTEGER>   { str = str + ", " + token.image + ")"; }
+                    ) ?
+                    <CLOSE_PAREN>
+                ) ?
+            )
+          | (<DOUBLE> <PRECISION>)          { str = "DOUBLE PRECISION"; }
+          | <FLOAT>                         { str = token.image; }
+          | <INTEGER>                       { str = token.image; }
+          | <INTEGER>                       { str = token.image; }
+          | <NUMERIC>                       { str = token.image; }
+          | <REAL>                          { str = token.image; }
+          | <SMALLINT>                      { str = token.image; }
+        )                                   { Debug.print ("Numeric " + str); }
+      | parseDateTime()
+      | parseInterval()
+      | (
+            (
+                <CHAR> (<VARYING>)?
+              | <CLOB>
+              | <VARCHAR>
+              | <GRAPHIC>
+              | <VARGRAPHIC>
+            )             { str = token.image; }
+            (
+                <OPEN_PAREN>
+                <LITERAL_INTEGER>           { str = str + "(" + token.image + ")"; }
+                <CLOSE_PAREN>
+            ) ?
+        )                                   { Debug.print ("String1: " + str); }
+      | (
+            <LONG>
+            ( <VARCHAR> | <VARGRAPHIC> )
+        )                { Debug.print ("String2: long " + token.image); }
+      | (
+            <PERIOD>                        { Debug.print ("Period ("); }
+            <OPEN_PAREN>
+            parseDateTime()
+            <CLOSE_PAREN>                   { Debug.print (")"); }
+        )
+    )
+
+}
+
+void parseDateTime() : {
+String str;
+} {
+    <DATE>                              { Debug.print (token.image); }
+    |
+        (
+            ( <TIME> | <TIMESTAMP> )        { str = token.image; }
+            (
+                <OPEN_PAREN>
+                <LITERAL_INTEGER>           { str = str + "(" + token.image + ")"; }
+                <CLOSE_PAREN>
+            )?
+        )                                   { Debug.print (str); }
+}
+
+void parseInterval() : {
+} {
+    <INTERVAL>                              { Debug.print (token.image + " "); }
+    (
+        (
+            /*
+             * Syntax for INTERVAL DAY, INTERVAL HOUR etc.
+             * Note that the syntax is not fully correct.
+             * For example it recognises Day, Day to hour, Day to minute
+             * and Day to Second.
+             * Additionally it recognises HOUR to second (for example).
+             * All of the above are syntactically correct.
+             * However, it will also allow HOUR to HOUR which is not syntactically
+             * correct.
+             * This "error" is allowed in the grammar on the basis that:
+             * - queries being processed here will be syntactically correct as
+             *   determined by Teradaata.
+             * - This parsers purpose is not to syntax check queries for
+             *   correctness. But to extract information to the query and thus
+             *   just needs to be able to process the query text.
+             * - Keeps the grammar simpler.
+             */
+            ( <DAY> | <HOUR> | <MINUTE> )   { Debug.print (token.image + " "); }
+            (
+                <OPEN_PAREN>
+                <LITERAL_INTEGER>           { Debug.print ("(" + token.image + ") "); }
+                <CLOSE_PAREN>
+            ) ?
+            (
+                <TO>
+                (
+                    <HOUR> | <MINUTE> | <SECOND>
+                )                           { Debug.print ("to " + token.image + " "); }
+            ) ?
+        )
+      | <MONTH>                             { Debug.print (token.image); }
+      | (
+            <YEAR>                          { Debug.print (token.image + " "); }
+            (
+                <OPEN_PAREN>
+                <LITERAL_INTEGER>           { Debug.print ("(" + token.image + ") "); }
+                <CLOSE_PAREN>
+            ) ?
+            (
+                <TO> <MONTH>
+            ) ?                             { Debug.print (" TO MONTH"); }
+        )
+    ) ?
+
+
+}
+
+void parseTypeAttribute() : {
+String str = "";
+} {
+    
+    (
+        ( <NOT> { str = "not "; }) ?
+        <NULL>                    { Debug.print (" " + str + "NULL "); }
+    )
+  | (
+        ( <COMMA> ) ?
+        (
+            (
+                (<NOT> { str = "not "; } )?
+                <CASESPECIFIC>          { Debug.print (" " + str + "casespecific"); }
+            )
+          | <UPPERCASE>                 { Debug.print (" uppercase" ); }
+          | (
+            <CHARACTER> <SET> <IDENTIFIER>
+                                        { Debug.print (" character set " + token.image); }
+            )
+        )
+    )
+
+}
+
+
+void parseLockingClause () : {
+} {
+    <LOCKING>                                                           { Debug.print ("Locking Clause: " + token.image + " "); }
+    (
+        ( ( <DATABASE> | <TABLE_LCK> | <VIEW> ) ? <DATABASE_OBJECT_NAME> )  { Debug.print( "DB/TBL/VIEW " + token.image + " "); }
+      | <ROW>                                                           { Debug.print( "ROW " ); }
+    )
+    ( <FOR> | <IN> ) ?                                                  { Debug.print ( token.image + " " ); }
+    (
+        ( <ACCESS> | <EXCLUSIVE> | <SHARE> | ( <READ> ( <OVERRIDE> ) ?) | <WRITE> | <CHECKSUM> )
+                                                                        { Debug.print ( token.image + " " ); }
+    )
+    ( <MODE> { Debug.print ("Mode"); } ) ?                                                        
+    ( <NOWAIT> { Debug.print ("Nowait"); } ) ?                                                      
+    { Debug.println(); }
+}
+
+
+void parseTemporalClause () : {
+} {
+
+    (
+        ( <CURRENT> <VALIDTIME> )                                       { Debug.println ("Temporal - current validtime"); }
+      | (
+            ( <SEQUENCED> { Debug.print ("Sequenced "); } ) ?
+            <VALIDTIME>                                                 { Debug.println ("Temporal - validtime"); }
+            (
+                <PERIOD>                                                { Debug.print ("Temporal PERIOD "); }
+                <SINGLE_QUOTE>
+                <OPEN_PAREN>
+                <PERIOD_BOUND>                                          { Debug.print (" from " + token.image); }
+                ( <HYPHEN> | <COMMA> )                                  
+                (
+                    <PERIOD_BOUND>
+                  | <UNTIL_CHANGED>
+                  | <UNTIL_CLOSED>
+                )                                                       { Debug.println (" to " + token.image); }
+                <CLOSE_PAREN>
+                <SINGLE_QUOTE>
+            ) ?
+        )
+      | ( <NONSEQUENCED> <VALIDTIME> )                                  { Debug.println ("Temporal - nonsequenced validtime"); }
+      | ( <NONTEMPORAL> )                                               { Debug.println ("Temporal - nontemporal"); }
+    )
+}
+
+
+String parseInsert () : {
+String target;
+} {
+    ( <INTO> ) ?
+    <IDENTIFIER> { target = token.image; }
+    { return target; }
+}
+
+
+String parseUpdate () : {
+String target;
+Token correlationNameToken = null;
+Token fromTableNameToken = null;
+Token asCorrelationNameToken = null;
+} {
+    (
+        (
+            fromTableNameToken = <IDENTIFIER>
+            (
+                ( <AS> ) ?
+                asCorrelationNameToken = <IDENTIFIER>
+            )?
+            ( <SET> )
+        )
+      |
+        (   
+            ( correlationNameToken = <IDENTIFIER> ) ?
+            ( <FROM> ) ?
+            fromTableNameToken = <IDENTIFIER>
+            (
+                ( <AS> ) ?
+                asCorrelationNameToken = <IDENTIFIER>
+            ) ?
+            ( <SET> )
+        )
+    ) {
+        Debug.println("Update parsed...");
+        String str = correlationNameToken != null ? correlationNameToken.image : "null";
+        Debug.println("  correlation Token   : " + str);
+
+        str = fromTableNameToken != null ? fromTableNameToken.image : "null";
+        Debug.println("  fromTable Token     : " + str);
+        
+        str = asCorrelationNameToken != null ? asCorrelationNameToken.image : "null";
+        Debug.println("  as correlation Token: " + str);
+            // Now we need to work out what the target of the table is in the variations of the query.
+            // First, we have all three parts:
+            // delete TARGET from TBL as ALIAS;
+            // or
+            // delete ALIAS from TARGET as ALIAS;
+            // The target differs depending upon whether the specified alias appears before the from clause or not.
+        if (correlationNameToken != null && fromTableNameToken != null && asCorrelationNameToken != null) {
+            if (correlationNameToken.image != null && correlationNameToken.image.equalsIgnoreCase(asCorrelationNameToken.image)) {
+                // variant: delete ALIAS from TBL as ALIAS
+                target = fromTableNameToken.image;
+                Debug.println("correlation + fromTable + AsCorrelation all specified & correlation = asCorrelation. Target = fromTable");
+                Debug.println("variant: update ALIAS from TARGET as ALIAS");
+            } else {
+                // variant: delete TARGET from TBL as ALIAS
+                Debug.println("correlation + fromTable + AsCorrelation all specified & correlation != asCorrelation. Target = correlation (not as correlation)");
+                Debug.println("variant: update TARGET from TBL as ALIAS");
+                target = correlationNameToken.image;
+            }
+        } else if (asCorrelationNameToken == null) {
+                // Next, check for a tablename being specified prior to the FROM clause:
+            if (correlationNameToken != null) {
+                // variant: DELETE TARGET from TBL;
+                Debug.println("AsCorrelation is null, correlation specified, TARGET = correlation");
+                Debug.println("variant: update TARGET from TBL");
+                target = correlationNameToken.image;
+            } else {
+                // No text prior to from clause:
+                // variant: DELETE from TARGET;
+                Debug.println("AsCorrelation is null, correlation specified, TARGET = correlation");
+                Debug.println("variant: update from TARGET  ( WHERE | ALL | ; | end of text - but not AS alias | alias)");
+                target = fromTableNameToken.image;
+            }
+        } else {
+            // otherwise simply use the bit after the FROM keyword
+            // of if there is no from keyword, then the first word
+            // after the delete keyword.
+            // variant: delete TARGET as ALIAS;
+            // variant: delete TARGET ALIAS
+            Debug.println("AsCorrelation is null & correlation is null, TARGET = fromTableName");
+            Debug.println("variant: update TARGET (AS ALIAS");
+            target = fromTableNameToken.image;
+        }
+        return target;
+    }
+}
+
+
+String parseDelete () : {
+String target = null;
+Token correlationNameToken = null;
+Token fromTableNameToken = null;
+Token asCorrelationNameToken = null;
+} {
+    (
+        (
+            fromTableNameToken = <IDENTIFIER>
+            (
+                ( <AS> ) ?
+                asCorrelationNameToken = <IDENTIFIER>
+            )?
+            ( <WHERE> | <ALL> | <SEMICOLON> | <EOF> )
+        )
+      |
+        (   
+            ( correlationNameToken = <IDENTIFIER> ) ?
+            ( <FROM> ) ?
+            fromTableNameToken = <IDENTIFIER>
+            (
+                ( <AS> ) ?
+                asCorrelationNameToken = <IDENTIFIER>
+            ) ?
+            ( <WHERE> | <ALL> | <SEMICOLON> | <EOF> )
+        )
+    ) {
+        Debug.println("Delete parsed...");
+        String str = correlationNameToken != null ? correlationNameToken.image : "null";
+        Debug.println("  correlation Token   : " + str);
+
+        str = fromTableNameToken != null ? fromTableNameToken.image : "null";
+        Debug.println("  fromTable Token     : " + str);
+        
+        str = asCorrelationNameToken != null ? asCorrelationNameToken.image : "null";
+        Debug.println("  as correlation Token: " + str);
+            // Now we need to work out what the target of the table is in the variations of the query.
+            // First, we have all three parts:
+            // delete TARGET from TBL as ALIAS;
+            // or
+            // delete ALIAS from TARGET as ALIAS;
+            // The target differs depending upon whether the specified alias appears before the from clause or not.
+        if (correlationNameToken != null && fromTableNameToken != null && asCorrelationNameToken != null) {
+            if (correlationNameToken.image != null && correlationNameToken.image.equalsIgnoreCase(asCorrelationNameToken.image)) {
+                // variant: delete ALIAS from TBL as ALIAS
+                target = fromTableNameToken.image;
+                Debug.println("correlation + fromTable + AsCorrelation all specified & correlation = asCorrelation. Target = fromTable");
+                Debug.println("variant: delete ALIAS from TARGET as ALIAS");
+            } else {
+                // variant: delete TARGET from TBL as ALIAS
+                Debug.println("correlation + fromTable + AsCorrelation all specified & correlation != asCorrelation. Target = correlation (not as correlation)");
+                Debug.println("variant: delete TARGET from TBL as ALIAS");
+                target = correlationNameToken.image;
+            }
+        } else if (asCorrelationNameToken == null) {
+                // Next, check for a tablename being specified prior to the FROM clause:
+            if (correlationNameToken != null) {
+                // variant: DELETE TARGET from TBL;
+                Debug.println("AsCorrelation is null, correlation specified, TARGET = correlation");
+                Debug.println("variant: delete TARGET from TBL");
+                target = correlationNameToken.image;
+            } else {
+                // No text prior to from clause:
+                // variant: DELETE from TARGET;
+                Debug.println("AsCorrelation is null, correlation specified, TARGET = correlation");
+                Debug.println("variant: delete from TARGET  ( WHERE | ALL | ; | end of text - but not AS alias | alias)");
+                target = fromTableNameToken.image;
+            }
+        } else {
+            // otherwise simply use the bit after the FROM keyword
+            // of if there is no from keyword, then the first word
+            // after the delete keyword.
+            // variant: delete TARGET as ALIAS;
+            // variant: delete TARGET ALIAS
+            Debug.println("AsCorrelation is null & correlation is null, TARGET = fromTableName");
+            Debug.println("variant: delete TARGET (AS ALIAS");
+            target = fromTableNameToken.image;
+        }
+        return target;
+    }
+}
+
+
+
+String parseMerge () : {
+String target;
+} {
+    ( <INTO> ) ?
+    <IDENTIFIER> { target = token.image; }
+    { return target; }
+}
+
+
+
+
+
+String parseCreate () : {
+String target;
+} {
+    ( <SET> | <MULTISET> ) ?
+    ( (<GLOBAL> <TEMPORARY>) | <VOLATILE> ) ?
+    <TABLE>
+    <IDENTIFIER>                        { target = token.image; }
+    { return target; }
+}
