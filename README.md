@@ -32,7 +32,7 @@ It supports the following action query types:
 It does not parse the entire query. Once it identifies the target table, the parsing stops.
 For example, you could pass the query `Insert into X;` and the code will return X - despite the fact that such a query is invalid.
 
-The UDF will recognise fully qualified target names (e.g. insert into db.tbl ...) and partially qualified targets (e.g. insert into tbl ...)
+The UDF will recognise fully qualified target names (e.g. `insert into db.tbl ...`) and partially qualified targets (e.g. `insert into tbl ...`)
 
 If you only wish to compile the code, any IDE should do.
 However, If you wish to alter, extend and/or fix the SQL syntax recognised by this code, you will need javacc to recompile the grammar.
