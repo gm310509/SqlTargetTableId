@@ -62,6 +62,7 @@ public class MainFrame extends javax.swing.JFrame {
         selectedLabel.setText("Processing: All Text");
         selectedLabel.setBorder(javax.swing.BorderFactory.createEtchedBorder());
         jPanel1.add(selectedLabel, java.awt.BorderLayout.NORTH);
+        selectedLabel.getAccessibleContext().setAccessibleName("Processing: All Text");
 
         sqlTextArea.setColumns(20);
         sqlTextArea.setRows(5);

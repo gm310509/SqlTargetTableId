@@ -19,11 +19,11 @@ import java.io.StringReader;
 
 /**
  *
- * @author glennm
+ * @author glennm + modifications by beekm
  */
 public class Main {
 
-    public static final String version = "1.00.02.01";
+    public static final String version = "1.00.03.01";
     
     /** Exit status code returned if the application succeeds. */
     public static final int APP_SUCCESS = 0;

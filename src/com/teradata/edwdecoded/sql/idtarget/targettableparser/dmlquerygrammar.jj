@@ -582,87 +582,70 @@ String target;
     { return target; }
 }
 
+// MB186062 (14-dec-2017):  Rewritten the update parser as it was not able to 
+//                          deal with the joined table syntax for the updates
+//                          and to simplify the code a bit
+String parseUpdate() : {
+String target = "";
+Token targetTblOrAlias = null;
 
-String parseUpdate () : {
-String target;
-Token correlationNameToken = null;
-Token fromTableNameToken = null;
-Token asCorrelationNameToken = null;
 } {
+    // These are the variants:
+    // 1) update TARGETTABLE as ALIAS SET                       (Basic Form No From)
+    // 2) update TARGETTABLE from TARGETTABLE as ALIAS1 SET     (Basic Form + FROM)
+    // 2) update ALIAS1 from TARGETTABLE as ALIAS1 SET          (Basic Form + FROM)
+    // 3) update ALIAS2 from TBL as ALIAS1, TBL2 as ALIAS2 SET  (Joined Table Form)
+    // 4) update TBL2 from TBL as ALIAS1, TBL2 as ALIAS2 SET    (Joined Table Form)
+
     (
-        (
-            fromTableNameToken = <IDENTIFIER>
+        (   
+            <IDENTIFIER>                        { target = token.image; }
             (
-                ( <AS> ) ?
-                asCorrelationNameToken = <IDENTIFIER>
+                ( <AS> )?
+                <IDENTIFIER>
             )?
             ( <SET> )
+            { Debug.println("Processing update of form <BASIC, NO FROM>"); }
         )
-      |
-        (   
-            ( correlationNameToken = <IDENTIFIER> ) ?
-            ( <FROM> ) ?
-            fromTableNameToken = <IDENTIFIER>
-            (
-                ( <AS> ) ?
-                asCorrelationNameToken = <IDENTIFIER>
-            ) ?
+        |
+        (
+            targetTblOrAlias = <IDENTIFIER>      
+            ( <FROM> )?
+            target = parseUpdateFromTables (targetTblOrAlias, target)
             ( <SET> )
+            { Debug.println("Processing update of form <BASIC + FROM (Single or joined)>"); }
         )
-    ) {
-        Debug.println("Update parsed...");
-        String str = correlationNameToken != null ? correlationNameToken.image : "null";
-        Debug.println("  correlation Token   : " + str);
+    )
+    
+    { return target; }
+}
 
-        str = fromTableNameToken != null ? fromTableNameToken.image : "null";
-        Debug.println("  fromTable Token     : " + str);
-        
-        str = asCorrelationNameToken != null ? asCorrelationNameToken.image : "null";
-        Debug.println("  as correlation Token: " + str);
-            // Now we need to work out what the target of the table is in the variations of the query.
-            // First, we have all three parts:
-            // delete TARGET from TBL as ALIAS;
-            // or
-            // delete ALIAS from TARGET as ALIAS;
-            // The target differs depending upon whether the specified alias appears before the from clause or not.
-        if (correlationNameToken != null && fromTableNameToken != null && asCorrelationNameToken != null) {
-            if (correlationNameToken.image != null && correlationNameToken.image.equalsIgnoreCase(asCorrelationNameToken.image)) {
-                // variant: delete ALIAS from TBL as ALIAS
-                target = fromTableNameToken.image;
-                Debug.println("correlation + fromTable + AsCorrelation all specified & correlation = asCorrelation. Target = fromTable");
-                Debug.println("variant: update ALIAS from TARGET as ALIAS");
-            } else {
-                // variant: delete TARGET from TBL as ALIAS
-                Debug.println("correlation + fromTable + AsCorrelation all specified & correlation != asCorrelation. Target = correlation (not as correlation)");
-                Debug.println("variant: update TARGET from TBL as ALIAS");
-                target = correlationNameToken.image;
-            }
-        } else if (asCorrelationNameToken == null) {
-                // Next, check for a tablename being specified prior to the FROM clause:
-            if (correlationNameToken != null) {
-                // variant: DELETE TARGET from TBL;
-                Debug.println("AsCorrelation is null, correlation specified, TARGET = correlation");
-                Debug.println("variant: update TARGET from TBL");
-                target = correlationNameToken.image;
-            } else {
-                // No text prior to from clause:
-                // variant: DELETE from TARGET;
-                Debug.println("AsCorrelation is null, correlation specified, TARGET = correlation");
-                Debug.println("variant: update from TARGET  ( WHERE | ALL | ; | end of text - but not AS alias | alias)");
-                target = fromTableNameToken.image;
-            }
-        } else {
-            // otherwise simply use the bit after the FROM keyword
-            // of if there is no from keyword, then the first word
-            // after the delete keyword.
-            // variant: delete TARGET as ALIAS;
-            // variant: delete TARGET ALIAS
-            Debug.println("AsCorrelation is null & correlation is null, TARGET = fromTableName");
-            Debug.println("variant: update TARGET (AS ALIAS");
-            target = fromTableNameToken.image;
-        }
-        return target;
-    }
+String parseUpdateFromTables (Token targetTblOrAlias, String prevTarget) : {
+String target = prevTarget;
+Token updTable = null;
+Token updAlias = null;
+}
+{
+    updTable = <IDENTIFIER>                 {   
+                                                if (targetTblOrAlias.image != null && updTable.image != null 
+                                                    && targetTblOrAlias.image.equalsIgnoreCase(updTable.image)) {
+                                                    target = updTable.image; 
+                                                } 
+                                            }
+    (
+        ( <AS> ) ?
+        updAlias = <IDENTIFIER>             {   if (targetTblOrAlias.image != null && updAlias.image != null 
+                                                    && targetTblOrAlias.image.equalsIgnoreCase(updAlias.image)) {
+                                                    target = updTable.image; 
+                                                } 
+                                            }
+        (
+            <COMMA>
+            target = parseUpdateFromTables (targetTblOrAlias, target)
+        ) *
+    )
+
+    { return target; }
 }
 
 
